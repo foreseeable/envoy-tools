@@ -6,14 +6,14 @@ TODO(mugechen): DO NOT SUBMIT without a detailed description of headersplit.
 
 
 from __future__ import print_function
+from ctypes import c_uint, c_int
 
 import argparse
 
 import clang.cindex
-from clang.cindex import *
+from clang.cindex import Type, TranslationUnit, Index, CursorKind
 
 import cymbal
-from ctypes import *
 
 # TODO: fix the hard coded path
 clang.cindex.Config.set_library_path("/opt/llvm/lib")
@@ -29,7 +29,6 @@ cymbal.monkeypatch_type('get_num_template_arguments',
                         c_int)
 
 
-
 # check if the cursor's type is a template
 def is_template(node):
     return hasattr(node, 'type') and node.type.get_num_template_arguments() != -1
@@ -38,7 +37,7 @@ def is_template(node):
 def get_headers(translation_unit):
     cursor = translation_unit.cursor
     for i in cursor.walk_preorder():
-        if i.location.file != None and i.location.file.name == cursor.displayname:
+        if i.location.file is not None and i.location.file.name == cursor.displayname:
             filename = i.location.file.name
             with open(filename, 'r') as fh:
                 contents = fh.read()
@@ -52,9 +51,9 @@ def class_definitions(cursor):
     class_cursors = []
     print(cursor.displayname)
     for i in cursor.walk_preorder():
-        if i.location.file==None:
+        if i.location.file is not None:
             continue
-        if i.location.file.name!=cursor.displayname:
+        if i.location.file.name != cursor.displayname:
             continue
         if i.kind != CursorKind.CLASS_DECL:
             continue
@@ -69,7 +68,7 @@ def class_definitions(cursor):
 
 def class_implementations(cursor):
     for i in cursor.walk_preorder():
-        if i.location.file == None:
+        if i.location.file is not None:
             continue
         if i.location.file.name != cursor.displayname:
             continue
@@ -99,7 +98,7 @@ def extract_definition(cursor, fullclassnames):
     deps = set()
     for i in cursor.walk_preorder():
         if class_name == "MockAdmin":
-            print(i.spelling,i.kind)
+            print(i.spelling, i.kind)
             t = i
             if is_template(t):
                 print(t.kind, t.spelling, t.get_num_template_arguments())
@@ -185,7 +184,7 @@ def main(args):
             includes += '#include "{}.h"\n'.format(dep)
         class_impl = ""
         try:
-            impl_includes.replace(decl_filename,'{}.h'.format(class_name))
+            impl_includes.replace(decl_filename, '{}.h'.format(class_name))
             class_impl = impl_includes + classname_to_impl[class_name]
         except:
             class_impl = ""

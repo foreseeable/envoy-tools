@@ -2,8 +2,8 @@
 #include<cstdio>
 #include"tmp.h"
 
-#include "MockInt.h"
 #include "Base.h"
+#include "MockInt.h"
 namespace mocktest {
 class MockData:Base{
  public:
