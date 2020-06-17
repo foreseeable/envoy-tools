@@ -2,18 +2,9 @@
 #include<cstdio>
 #include"tmp.h"
 
-namespace mocktest{
-class Base{
-};
-class MockInt:Base{
-  class tmp{
-    long f;
-  };
-  int num;
-  int getInt();
-  MockInt addOne();
-};
-
+#include "MockInt.h"
+#include "Base.h"
+namespace mocktest {
 class MockData:Base{
  public:
   MockInt nums[10];
