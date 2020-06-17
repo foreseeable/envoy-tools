@@ -1,16 +1,19 @@
 #pragma once
-#include<map>
-#include<set>
 #include<cstdio>
+#include<vector>
 
-using std::map;
-using std::set;
+using std::vector;
 namespace mocktest{
-class MockMap:map<int,int>{
-  int getInt(int key);
+class Base{
+};
+class MockInt:Base{
+  int num;
+  int getInt();
 };
 
-class MockSet:set<map<int,int>>{
-  map<int,int> getSet();
+class MockData:Base{
+ public:
+  int nums[10];
+  int getInt(int index);
 };
 }

@@ -1,9 +1,9 @@
 #include "mocks.h"
 
-int mocktest::MockMap::getInt(int key){
+int mocktest::MockInt::getInt(){
   return 42;
 }
 
-map<int,int> mocktest::MockSet::getSet(){
-  return {};
+int mocktest::MockData::getInt(int index){
+  return 54;
 }
