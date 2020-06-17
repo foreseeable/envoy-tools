@@ -1,12 +1,14 @@
 #pragma once
 #include<cstdio>
-#include<vector>
+#include"tmp.h"
 
-using std::vector;
 namespace mocktest{
 class Base{
 };
 class MockInt:Base{
+  class tmp{
+    long f;
+  };
   int num;
   int getInt();
 };

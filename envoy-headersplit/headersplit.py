@@ -15,17 +15,28 @@ from clang.cindex import *
 clang.cindex.Config.set_library_path("/opt/llvm/lib")
 
 
+def get_headers(translation_unit):
+    cursor = translation_unit.cursor
+    for i in cursor.walk_preorder():
+        if i.location.file!=None and i.location.file.name == cursor.displayname:
+            filename = i.location.file.name
+            with open(filename, 'r') as fh:
+                contents = fh.read()
+            headers = contents[:i.extent.start.offset]
+            return headers
+
+    return ""
 
 
 def class_definitions(cursor):
     for i in cursor.walk_preorder():
-        print(i.kind,i.spelling)
         if i.kind != CursorKind.CLASS_DECL:
             continue
         if not i.is_definition():
             continue
+        if i.semantic_parent.kind!=CursorKind.NAMESPACE:
+            continue
         yield i
-    print("done")
 
 
 #def class_implementations(cursor):
@@ -36,15 +47,22 @@ def class_definitions(cursor):
 #        yield i
 #
 
+
 def extract_definition(cursor):
     filename = cursor.location.file.name
     with open(filename, 'r') as fh:
         contents = fh.read()
     class_name = cursor.spelling
-    class_defn = contents[cursor.extent.start.offset:cursor.extent.end.offset]
+    class_defn = contents[cursor.extent.start.offset:cursor.extent.end.offset]+";"
+    # need to know enclosed semantic parents
     #print(cursor.spelling)
-    #pc = cursor.semantic_parent
-    #print(contents[pc.extent.start.offset:pc.extent.start.offset + 100])
+    pc = cursor.semantic_parent
+    print(pc.kind,pc.spelling)
+    while pc.kind == CursorKind.NAMESPACE:
+        if pc.spelling == "":
+            break
+        class_defn = "namespace {} {{\n".format(pc.spelling) + class_defn + "\n}\n"
+        pc = pc.semantic_parent
     return class_name, class_defn
 
 
@@ -69,6 +87,11 @@ TODO: formatting
 
 def main(args):
   idx = Index.create()
+  source_translation_unit = TranslationUnit.from_source(
+      "mocks.h"
+  )
+
+  decl_includes = get_headers(source_translation_unit)
   tu = idx.parse('mocks.h', ['-x', 'c++'])
   defns = class_definitions(tu.cursor)
   #idx2 = Index.create()
@@ -88,7 +111,7 @@ def main(args):
       #print(extract_definition(defn))
       class_name,class_defn = extract_definition(defn)
       with open("mockclass/{}.h".format(class_name),"w") as f:
-        f.write(class_defn)
+        f.write(decl_includes+class_defn)
       
 
 if __name__ == '__main__':
