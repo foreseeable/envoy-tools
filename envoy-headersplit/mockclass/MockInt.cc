@@ -1,8 +1,13 @@
-#include "mocks.h"
+#include "Base.h"
 
-int mocktest::MockInt::getInt(){
+namespace mocktest {
+int MockInt::getInt(){
   return 42;
 }
-mocktest::MockInt mocktest::MockInt::addOne(){
+
+MockInt MockInt::addOne(){
   return {};
+}
+
+
 }

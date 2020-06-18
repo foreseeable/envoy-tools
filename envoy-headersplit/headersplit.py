@@ -49,9 +49,8 @@ def get_headers(translation_unit):
 
 def class_definitions(cursor):
     class_cursors = []
-    print(cursor.displayname)
     for i in cursor.walk_preorder():
-        if i.location.file is not None:
+        if i.location.file is None:
             continue
         if i.location.file.name != cursor.displayname:
             continue
@@ -61,21 +60,21 @@ def class_definitions(cursor):
             continue
         if i.semantic_parent.kind != CursorKind.NAMESPACE:
             continue
-        print(i.spelling)
         class_cursors.append(i)
     return class_cursors
 
 
 def class_implementations(cursor):
+    #print(cursor.displayname)
+    flag = False
     for i in cursor.walk_preorder():
-        if i.location.file is not None:
+        if i.location.file is None:
             continue
         if i.location.file.name != cursor.displayname:
             continue
 
-        if i.kind != CursorKind.CXX_METHOD:
-            continue
-        yield i
+        if i.kind != CursorKind.NAMESPACE and i.semantic_parent is not None and i.semantic_parent.kind == CursorKind.CLASS_DECL:
+            yield i
 
 
 def extract_definition(cursor, fullclassnames):
@@ -97,12 +96,6 @@ def extract_definition(cursor, fullclassnames):
 
     deps = set()
     for i in cursor.walk_preorder():
-        if class_name == "MockAdmin":
-            print(i.spelling, i.kind)
-            t = i
-            if is_template(t):
-                print(t.kind, t.spelling, t.get_num_template_arguments())
-                print(t.get_template_argument_type(0).spelling)
         if i.kind == CursorKind.CXX_BASE_SPECIFIER or i.kind == CursorKind.TYPE_REF:
             if i.spelling in fullclassnames:
                 depname = i.spelling.split(':')[-1]
@@ -115,11 +108,10 @@ def extract_definition(cursor, fullclassnames):
 def extract_implementation(cursor):
     filename = cursor.location.file.name
     with open(filename, 'r') as fh:
-        contents = fh.read()
+        contents = fh.readlines()
     class_name = cursor.semantic_parent.spelling
-    print(class_name, cursor.spelling)
-    return class_name, contents[cursor.extent.start.offset:cursor.extent.end.
-                                offset]
+    return class_name, "".join(contents[cursor.extent.start.line-1:cursor.extent.end.
+                                        line])
 
 
 """
@@ -133,6 +125,7 @@ def main(args):
     decl_filename = args["decl"]
     impl_filename = args["impl"]
     idx = Index.create()
+
     source_translation_unit = TranslationUnit.from_source(
         decl_filename
     )
@@ -144,19 +137,19 @@ def main(args):
     decl_includes = get_headers(source_translation_unit)
     impl_includes = get_headers(impl_translation_unit)
 
-    impls = class_implementations(impl_translation_unit.cursor)
     tu = idx.parse(decl_filename, ['-x', 'c++'])
     defns = class_definitions(tu.cursor)
 
+    impls = class_implementations(impl_translation_unit.cursor)
+
     classname_to_impl = dict()
 
-    for impl in impls:
-        classname, impl = extract_implementation(impl)
+    for cursor in impls:
+        classname, impl = extract_implementation(cursor)
         try:
             classname_to_impl[classname] += impl + "\n"
         except:
             classname_to_impl[classname] = impl + "\n"
-    print(classname_to_impl)
 
     classnames = [cursor.spelling for cursor in defns]
     fullclassnames = []
@@ -172,21 +165,32 @@ def main(args):
 
         fullclassname = "class "+classname
         fullclassnames.append(fullclassname)
-    print(classnames)
-    print(fullclassnames)
     for defn in defns:
-        print("---")
+        #print("---")
         #print(extract_definition(defn))
         class_name, class_defn, deps = extract_definition(defn, fullclassnames)
-        print(deps)
+        #print(deps)
         includes = ""
-        for dep in deps:
-            includes += '#include "{}.h"\n'.format(dep)
+        for name in classnames:
+            includes += '#include "{}.h"\n'.format(name)
         class_impl = ""
         try:
-            impl_includes.replace(decl_filename, '{}.h'.format(class_name))
-            class_impl = impl_includes + classname_to_impl[class_name]
+            impl_includes = impl_includes.replace(decl_filename, '{}.h'.format(class_name))
+            namespace_prefix = ""
+            namespace_suffix = ""
+            pc = defn.semantic_parent
+            while pc.kind == CursorKind.NAMESPACE:
+                if pc.spelling == "":
+                    break
+                namespace_prefix += "namespace {} {{\n".format(
+                    pc.spelling)
+                namespace_suffix += "\n}\n"
+                pc = pc.semantic_parent
+            class_impl = impl_includes + namespace_prefix + \
+                classname_to_impl[class_name] + namespace_suffix
+
         except:
+            print("Warning: empty class {}".format(class_name))
             class_impl = ""
         with open("mockclass/{}.h".format(class_name), "w") as f:
             f.write(decl_includes+includes+class_defn)

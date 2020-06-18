@@ -3,6 +3,8 @@
 #include"tmp.h"
 
 #include "Base.h"
+#include "MockInt.h"
+#include "MockData.h"
 namespace mocktest {
 class MockInt:Base{
   class tmp{

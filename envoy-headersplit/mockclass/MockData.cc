@@ -1,8 +1,13 @@
-#include "mocks.h"
+#include "Base.h"
 
-mocktest::MockInt mocktest::MockData::getInt(int index){
-  return 54;
+namespace mocktest {
+MockInt MockData::getInt(int index){
+  return {};
 }
-mocktest::MockInt mocktest::MockData::getInt(MockInt index){
-  return 540;
+
+MockInt MockData::getInt(MockInt index){
+  return {};
+}
+
+
 }

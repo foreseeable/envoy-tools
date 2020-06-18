@@ -1,4 +1,4 @@
-#include "mocks.h"
+#include "mocks2.h"
 
 #include <string>
 
@@ -97,7 +97,7 @@ MockOverloadManager::MockOverloadManager() {
 MockOverloadManager::~MockOverloadManager() = default;
 
 MockListenerComponentFactory::MockListenerComponentFactory()
-    : socket_(std::make_shared<NiceMock<Network::MockListenSocket>>()) {
+    : socket_(std::make_shared<Network::MockListenSocket>()) {
   ON_CALL(*this, createListenSocket(_, _, _, _))
       .WillByDefault(Invoke([&](Network::Address::InstanceConstSharedPtr, Network::Socket::Type,
                                 const Network::Socket::OptionsSharedPtr& options,
