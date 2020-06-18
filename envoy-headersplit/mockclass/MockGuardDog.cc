@@ -26,6 +26,7 @@ MockGuardDog::MockGuardDog() : watch_dog_(new NiceMock<MockWatchDog>()) {
 MockGuardDog::~MockGuardDog() = default;
 
 
+
 }
 
 }

@@ -28,7 +28,9 @@ MockTransportSocketFactoryContext::MockTransportSocketFactoryContext()
       .WillByDefault(ReturnRef(ProtobufMessage::getStrictValidationVisitor()));
 }
 
+
 MockTransportSocketFactoryContext::~MockTransportSocketFactoryContext() = default;
+
 
 
 }

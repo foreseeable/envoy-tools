@@ -32,7 +32,9 @@ MockHealthCheckerFactoryContext::MockHealthCheckerFactoryContext() {
   ON_CALL(*this, api()).WillByDefault(ReturnRef(api_));
 }
 
+
 MockHealthCheckerFactoryContext::~MockHealthCheckerFactoryContext() = default;
+
 
 
 }

@@ -1,4 +1,4 @@
-#include "mocks2.h"
+#include "mocks2.hh"
 
 #include <string>
 

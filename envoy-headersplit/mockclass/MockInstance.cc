@@ -57,7 +57,11 @@ MockInstance::MockInstance()
       .WillByDefault(ReturnRef(*transport_socket_factory_context_));
 }
 
+
 MockInstance::~MockInstance() = default;
+
+namespace Configuration {
+
 
 
 }

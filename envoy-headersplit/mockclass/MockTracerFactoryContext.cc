@@ -26,7 +26,9 @@ MockTracerFactoryContext::MockTracerFactoryContext() {
       .WillByDefault(ReturnRef(ProtobufMessage::getStrictValidationVisitor()));
 }
 
+
 MockTracerFactoryContext::~MockTracerFactoryContext() = default;
+
 
 
 }

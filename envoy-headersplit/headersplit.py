@@ -66,15 +66,17 @@ def class_definitions(cursor):
 
 def class_implementations(cursor):
     #print(cursor.displayname)
-    flag = False
+    impl_cursors = []
     for i in cursor.walk_preorder():
         if i.location.file is None:
             continue
+        #print(i.location.file.name)
         if i.location.file.name != cursor.displayname:
             continue
 
         if i.kind != CursorKind.NAMESPACE and i.semantic_parent is not None and i.semantic_parent.kind == CursorKind.CLASS_DECL:
-            yield i
+            impl_cursors.append(i)
+    return impl_cursors
 
 
 def extract_definition(cursor, fullclassnames):
@@ -107,11 +109,11 @@ def extract_definition(cursor, fullclassnames):
 
 def extract_implementation(cursor):
     filename = cursor.location.file.name
-    with open(filename, 'r') as fh:
-        contents = fh.readlines()
     class_name = cursor.semantic_parent.spelling
-    return class_name, "".join(contents[cursor.extent.start.line-1:cursor.extent.end.
-                                        line])
+    print(class_name, cursor.extent)
+    return class_name, cursor.extent.start.line-1
+    #"".join(contents[cursor.extent.start.line-1:cursor.extent.end.
+    #                                    line])
 
 
 """
@@ -131,8 +133,11 @@ def main(args):
     )
 
     impl_translation_unit = TranslationUnit.from_source(
-        impl_filename
+        impl_filename,
+        options=TranslationUnit.PARSE_INCOMPLETE
     )
+    for x in impl_translation_unit.diagnostics:
+        print(x)
 
     decl_includes = get_headers(source_translation_unit)
     impl_includes = get_headers(impl_translation_unit)
@@ -140,12 +145,27 @@ def main(args):
     tu = idx.parse(decl_filename, ['-x', 'c++'])
     defns = class_definitions(tu.cursor)
 
+    idx_impl = Index.create()
+    tu_impl = idx_impl.parse(decl_filename, ['-x', 'c++'])
     impls = class_implementations(impl_translation_unit.cursor)
 
     classname_to_impl = dict()
+    with open(impl_filename, 'r') as fh:
+        contents = fh.readlines()
 
-    for cursor in impls:
-        classname, impl = extract_implementation(cursor)
+    for i in range(len(impls)):
+        cursor = impls[i]
+        classname, implline = extract_implementation(cursor)
+        if i+1 < len(impls):
+            _, impl_end = extract_implementation(impls[i+1])
+            impl = ''.join(contents[implline:impl_end])
+        else:
+            offset = 0
+            while implline + offset < len(contents):
+                if '// namespace' in contents[implline+offset]:
+                    break
+                offset += 1
+            impl = ''.join(contents[implline:implline+offset])
         try:
             classname_to_impl[classname] += impl + "\n"
         except:
@@ -175,7 +195,8 @@ def main(args):
             includes += '#include "{}.h"\n'.format(name)
         class_impl = ""
         try:
-            impl_includes = impl_includes.replace(decl_filename, '{}.h'.format(class_name))
+            impl_includes = impl_includes.replace(
+                decl_filename, '{}.h'.format(class_name))
             namespace_prefix = ""
             namespace_suffix = ""
             pc = defn.semantic_parent

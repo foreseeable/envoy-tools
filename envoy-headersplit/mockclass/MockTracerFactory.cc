@@ -29,6 +29,7 @@ MockTracerFactory::MockTracerFactory(const std::string& name) : name_(name) {
 MockTracerFactory::~MockTracerFactory() = default;
 
 
+
 }
 
 }
