@@ -17,8 +17,8 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Server {
 namespace Envoy {
+namespace Server {
 MockAdmin::MockAdmin() {
   ON_CALL(*this, getConfigTracker()).WillByDefault(testing::ReturnRef(config_tracker_));
 }

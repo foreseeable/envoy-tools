@@ -56,31 +56,6 @@
 #include "gmock/gmock.h"
 #include "spdlog/spdlog.h"
 
-#include "MockOptions.h"
-#include "MockConfigTracker.h"
-#include "MockAdmin.h"
-#include "MockAdminStream.h"
-#include "MockDrainManager.h"
-#include "MockWatchDog.h"
-#include "MockGuardDog.h"
-#include "MockHotRestart.h"
-#include "MockListenerComponentFactory.h"
-#include "MockListenerManager.h"
-#include "MockServerLifecycleNotifier.h"
-#include "MockWorkerFactory.h"
-#include "MockWorker.h"
-#include "MockOverloadManager.h"
-#include "MockInstance.h"
-#include "MockMain.h"
-#include "MockServerFactoryContext.h"
-#include "MockFactoryContext.h"
-#include "MockTransportSocketFactoryContext.h"
-#include "MockListenerFactoryContext.h"
-#include "MockHealthCheckerFactoryContext.h"
-#include "MockFilterChainFactoryContext.h"
-#include "MockTracerFactory.h"
-#include "MockTracerFactoryContext.h"
-#include "MockBootstrapExtensionFactory.h"
 namespace Envoy {
 namespace Server {
 class MockOptions : public Options {
@@ -103,14 +78,13 @@ public:
   MOCK_METHOD(const std::string&, adminAddressPath, (), (const));
   MOCK_METHOD(Network::Address::IpVersion, localAddressIpVersion, (), (const));
   MOCK_METHOD(std::chrono::seconds, drainTime, (), (const));
-  MOCK_METHOD(std::chrono::seconds, parentShutdownTime, (), (const));
-  MOCK_METHOD(Server::DrainStrategy, drainStrategy, (), (const));
   MOCK_METHOD(spdlog::level::level_enum, logLevel, (), (const));
   MOCK_METHOD((const std::vector<std::pair<std::string, spdlog::level::level_enum>>&),
               componentLogLevels, (), (const));
   MOCK_METHOD(const std::string&, logFormat, (), (const));
   MOCK_METHOD(bool, logFormatEscaped, (), (const));
   MOCK_METHOD(const std::string&, logPath, (), (const));
+  MOCK_METHOD(std::chrono::seconds, parentShutdownTime, (), (const));
   MOCK_METHOD(uint64_t, restartEpoch, (), (const));
   MOCK_METHOD(std::chrono::milliseconds, fileFlushIntervalMsec, (), (const));
   MOCK_METHOD(Mode, mode, (), (const));

@@ -17,8 +17,8 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Server {
 namespace Envoy {
+namespace Server {
 MockGuardDog::MockGuardDog() : watch_dog_(new NiceMock<MockWatchDog>()) {
   ON_CALL(*this, createWatchDog(_, _)).WillByDefault(Return(watch_dog_));
 }

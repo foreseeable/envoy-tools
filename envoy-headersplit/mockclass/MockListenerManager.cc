@@ -17,8 +17,8 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Server {
 namespace Envoy {
+namespace Server {
 MockListenerManager::MockListenerManager() = default;
 
 MockListenerManager::~MockListenerManager() = default;

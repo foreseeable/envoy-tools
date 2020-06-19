@@ -17,9 +17,9 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Configuration {
-namespace Server {
 namespace Envoy {
+namespace Server {
+namespace Configuration {
 MockTracerFactory::MockTracerFactory(const std::string& name) : name_(name) {
   ON_CALL(*this, createEmptyConfigProto()).WillByDefault(Invoke([] {
     return std::make_unique<ProtobufWkt::Struct>();

@@ -17,9 +17,9 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Configuration {
-namespace Server {
 namespace Envoy {
+namespace Server {
+namespace Configuration {
 MockHealthCheckerFactoryContext::MockHealthCheckerFactoryContext() {
   event_logger_ = new NiceMock<Upstream::MockHealthCheckEventLogger>();
   ON_CALL(*this, cluster()).WillByDefault(ReturnRef(cluster_));

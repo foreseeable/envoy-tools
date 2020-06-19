@@ -17,8 +17,8 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Server {
 namespace Envoy {
+namespace Server {
 MockConfigTracker::MockConfigTracker() {
   ON_CALL(*this, add_(_, _))
       .WillByDefault(Invoke([this](const std::string& key, Cb callback) -> EntryOwner* {

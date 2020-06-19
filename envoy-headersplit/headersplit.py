@@ -79,7 +79,7 @@ def class_implementations(cursor):
     return impl_cursors
 
 
-def extract_definition(cursor, fullclassnames):
+def extract_definition(cursor, classnames):
     filename = cursor.location.file.name
     with open(filename, 'r') as fh:
         contents = fh.read()
@@ -97,12 +97,9 @@ def extract_definition(cursor, fullclassnames):
     #resolve dependency
 
     deps = set()
-    for i in cursor.walk_preorder():
-        if i.kind == CursorKind.CXX_BASE_SPECIFIER or i.kind == CursorKind.TYPE_REF:
-            if i.spelling in fullclassnames:
-                depname = i.spelling.split(':')[-1]
-                if depname != class_name:
-                    deps.add(depname)
+    for classname in classnames:
+      if classname in class_defn and classname!= class_name:
+        deps.add(classname)
 
     return class_name, class_defn, deps
 
@@ -110,7 +107,7 @@ def extract_definition(cursor, fullclassnames):
 def extract_implementation(cursor):
     filename = cursor.location.file.name
     class_name = cursor.semantic_parent.spelling
-    print(class_name, cursor.extent)
+    #print(class_name, cursor.extent)
     return class_name, cursor.extent.start.line-1
     #"".join(contents[cursor.extent.start.line-1:cursor.extent.end.
     #                                    line])
@@ -134,7 +131,7 @@ def main(args):
 
     impl_translation_unit = TranslationUnit.from_source(
         impl_filename,
-        options=TranslationUnit.PARSE_INCOMPLETE
+        options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
     )
     for x in impl_translation_unit.diagnostics:
         print(x)
@@ -188,10 +185,10 @@ def main(args):
     for defn in defns:
         #print("---")
         #print(extract_definition(defn))
-        class_name, class_defn, deps = extract_definition(defn, fullclassnames)
-        #print(deps)
+        class_name, class_defn, deps = extract_definition(defn, classnames)
+        print(deps)
         includes = ""
-        for name in classnames:
+        for name in deps:
             includes += '#include "{}.h"\n'.format(name)
         class_impl = ""
         try:
@@ -203,8 +200,9 @@ def main(args):
             while pc.kind == CursorKind.NAMESPACE:
                 if pc.spelling == "":
                     break
-                namespace_prefix += "namespace {} {{\n".format(
-                    pc.spelling)
+                print(class_name,pc.spelling)
+                namespace_prefix = "namespace {} {{\n".format(
+                    pc.spelling) +namespace_prefix
                 namespace_suffix += "\n}\n"
                 pc = pc.semantic_parent
             class_impl = impl_includes + namespace_prefix + \

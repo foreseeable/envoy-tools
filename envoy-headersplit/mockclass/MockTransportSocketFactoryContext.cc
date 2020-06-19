@@ -17,9 +17,9 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Configuration {
-namespace Server {
 namespace Envoy {
+namespace Server {
+namespace Configuration {
 MockTransportSocketFactoryContext::MockTransportSocketFactoryContext()
     : secret_manager_(std::make_unique<Secret::SecretManagerImpl>(config_tracker_)) {
   ON_CALL(*this, clusterManager()).WillByDefault(ReturnRef(cluster_manager_));

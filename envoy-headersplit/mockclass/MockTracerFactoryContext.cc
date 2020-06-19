@@ -17,9 +17,9 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Configuration {
-namespace Server {
 namespace Envoy {
+namespace Server {
+namespace Configuration {
 MockTracerFactoryContext::MockTracerFactoryContext() {
   ON_CALL(*this, serverFactoryContext()).WillByDefault(ReturnRef(server_factory_context_));
   ON_CALL(*this, messageValidationVisitor())

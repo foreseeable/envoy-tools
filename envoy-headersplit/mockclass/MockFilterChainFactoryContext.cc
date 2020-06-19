@@ -17,9 +17,9 @@ using testing::ReturnPointee;
 using testing::ReturnRef;
 using testing::SaveArg;
 
-namespace Configuration {
-namespace Server {
 namespace Envoy {
+namespace Server {
+namespace Configuration {
 MockFilterChainFactoryContext::MockFilterChainFactoryContext() = default;
 
 MockFilterChainFactoryContext::~MockFilterChainFactoryContext() = default;
