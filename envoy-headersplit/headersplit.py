@@ -37,6 +37,7 @@ def to_filename(classname):
         ret += val
     return ret.lower()
 
+
 def get_headers(translation_unit):
     """
     extracts all head includes statements from the target code file (translation_unit)
