@@ -1,46 +1,70 @@
+# !/usr/bin/env python3
 # Lint as: python3
-"""TODO(mugechen): DO NOT SUBMIT without one-line documentation for headersplit.
-
-TODO(mugechen): DO NOT SUBMIT without a detailed description of headersplit.
+"""
+This python script can dividing monolith mock headers
+into different mock classes. We need to remove the
+over-included head files in generated class codes and
+resolve dependencies in the corresponding Bazel files
+manually.
 """
 
-
 from __future__ import print_function
-from ctypes import c_uint, c_int
 
 import argparse
 
 import clang.cindex
-from clang.cindex import Type, TranslationUnit, Index, CursorKind
+from clang.cindex import TranslationUnit, Index, CursorKind
 
-import cymbal
-
-# TODO: fix the hard coded path
 clang.cindex.Config.set_library_path("/opt/llvm/lib")
 
-cymbal.monkeypatch_type('get_template_argument_type',
-                        'clang_Type_getTemplateArgumentAsType',
-                        [Type, c_uint],
-                        Type)
 
-cymbal.monkeypatch_type('get_num_template_arguments',
-                        'clang_Type_getNumTemplateArguments',
-                        [Type],
-                        c_int)
+def to_filename(classname):
+    """
+    maps mock class name (in C++ codes) to filenames under the envoy naming convention.
+    e.g. map "MockAdminStream" to "admin_stream"
 
+    Args:
+        classname: mock class name from source
 
-# check if the cursor's type is a template
-def is_template(node):
-    return hasattr(node, 'type') and node.type.get_num_template_arguments() != -1
-
+    Returns:
+        corresponding file name
+    """
+    filename = classname.replace('Mock', '')
+    ret = ""
+    for i, val in enumerate(filename):
+        if val.isupper() and i > 0:
+            ret += '_'
+        ret += val
+    return ret.lower()
 
 def get_headers(translation_unit):
+    """
+    extracts all head includes statements from the target code file (translation_unit)
+
+    for instance:
+        foo.h:
+        #include "a.h"
+        #include "b.h"
+
+        int foo(){
+
+        }
+    this function should return
+    '#include "a.h"\n#include "b.h"'
+
+    Args:
+        translation_unit: parsing result of target source code by libclang
+
+    Returns:
+        A string, contains all includes statements from the source code.
+
+    """
     cursor = translation_unit.cursor
     for i in cursor.walk_preorder():
         if i.location.file is not None and i.location.file.name == cursor.displayname:
             filename = i.location.file.name
-            with open(filename, 'r') as fh:
-                contents = fh.read()
+            with open(filename, 'r') as source_file:
+                contents = source_file.read()
             headers = contents[:i.extent.start.offset]
             return headers
 
@@ -48,6 +72,16 @@ def get_headers(translation_unit):
 
 
 def class_definitions(cursor):
+    """
+    extracts all class definitions in the file pointed by cursor. (typical mocks.h)
+
+    Args:
+        cursor: cursor of parsing result of target souce code by libclang
+
+    Returns:
+        a list of cursor, each pointing to a class definition.
+
+    """
     class_cursors = []
     for i in cursor.walk_preorder():
         if i.location.file is None:
@@ -65,107 +99,133 @@ def class_definitions(cursor):
 
 
 def class_implementations(cursor):
-    #print(cursor.displayname)
+    """
+    extracts all class implementation in the file pointed by cursor. (typical mocks.cc)
+
+    Args:
+        cursor: cursor of parsing result of target souce code by libclang
+
+    Returns:
+        a list of cursor, each pointing to a class implementation.
+
+    """
     impl_cursors = []
     for i in cursor.walk_preorder():
         if i.location.file is None:
             continue
-        #print(i.location.file.name)
         if i.location.file.name != cursor.displayname:
             continue
-
-        if i.kind != CursorKind.NAMESPACE and i.semantic_parent is not None and i.semantic_parent.kind == CursorKind.CLASS_DECL:
+        if i.kind == CursorKind.NAMESPACE:
+            continue
+        if i.semantic_parent is not None and i.semantic_parent.kind == CursorKind.CLASS_DECL:
             impl_cursors.append(i)
     return impl_cursors
 
 
 def extract_definition(cursor, classnames):
+    """
+    extracts class definition source code pointed by the cursor parameter.
+    and find dependent mock classes by naming look up.
+
+    Args:
+        cursor: libclang cursor pointing to the target mock class definition.
+        classnames: all mock class names defined in the definition header that needs to be
+            divided, used to parse class dependencies.
+    Returns:
+        class_name: a string representing the mock class name.
+        class_defn: a string contatins the whole class definition body.
+        deps: a set of string contatins all dependent classes for the return class.
+
+    Note:
+        It can not detect and resolve forward declaration and cyclic dependency. Need to address
+        manually.
+    """
     filename = cursor.location.file.name
-    with open(filename, 'r') as fh:
-        contents = fh.read()
+    with open(filename, 'r') as source_file:
+        contents = source_file.read()
     class_name = cursor.spelling
-    class_defn = contents[cursor.extent.start.offset:cursor.extent.end.offset]+";"
-    # need to know enclosed semantic parents
-    #print(cursor.spelling)
-    pc = cursor.semantic_parent
-    while pc.kind == CursorKind.NAMESPACE:
-        if pc.spelling == "":
+    class_defn = contents[cursor.extent.start.offset:cursor.extent.end.
+                          offset] + ";"
+    # need to know enclosed semantic parents (namespaces)
+    # to generate corresponding definitions
+    parent_cursor = cursor.semantic_parent
+    while parent_cursor.kind == CursorKind.NAMESPACE:
+        if parent_cursor.spelling == "":
             break
         class_defn = "namespace {} {{\n".format(
-            pc.spelling) + class_defn + "\n}\n"
-        pc = pc.semantic_parent
-    #resolve dependency
+            parent_cursor.spelling) + class_defn + "\n}\n"
+        parent_cursor = parent_cursor.semantic_parent
+
+    # resolve dependency
+    # by simple naming look up
 
     deps = set()
     for classname in classnames:
-      if classname in class_defn and classname!= class_name:
-        deps.add(classname)
+        if classname in class_defn and classname != class_name:
+            deps.add(classname)
 
     return class_name, class_defn, deps
 
 
 def extract_implementation(cursor):
-    filename = cursor.location.file.name
+    """
+    extracts class methods implementation source code pointed by the cursor parameter.
+    and find dependent mock classes by naming look up.
+
+    Args:
+        cursor: libclang cursor pointing to the target mock class definition.
+
+    Returns:
+        class_name: a string representing the mock class name.
+        implline: the first line of the corresponding impl code
+
+    Note:
+        this function return line number only. Because in certain case libclang will fail
+        in parsing the method body and return an empty function body instead. So we choose
+        not to parse the function body, get the start line and the end line instead.
+    """
     class_name = cursor.semantic_parent.spelling
-    #print(class_name, cursor.extent)
-    return class_name, cursor.extent.start.line-1
-    #"".join(contents[cursor.extent.start.line-1:cursor.extent.end.
-    #                                    line])
-
-
-"""
-TODO: resolve class dependency issues
-TODO: resolve over-inclusion issues
-TODO: formatting 
-"""
+    return class_name, cursor.extent.start.line - 1
 
 
 def main(args):
+    """
+    divides the monolith mock file into different mock class files.
+    """
     decl_filename = args["decl"]
     impl_filename = args["impl"]
     idx = Index.create()
 
-    source_translation_unit = TranslationUnit.from_source(
-        decl_filename
-    )
-
     impl_translation_unit = TranslationUnit.from_source(
-        impl_filename,
-        options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
-    )
-    for x in impl_translation_unit.diagnostics:
-        print(x)
+        impl_filename, options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
 
-    decl_includes = get_headers(source_translation_unit)
     impl_includes = get_headers(impl_translation_unit)
 
-    tu = idx.parse(decl_filename, ['-x', 'c++'])
-    defns = class_definitions(tu.cursor)
+    decl_translation_unit = idx.parse(decl_filename, ['-x', 'c++'])
+    defns = class_definitions(decl_translation_unit.cursor)
+    decl_includes = get_headers(decl_translation_unit)
 
-    idx_impl = Index.create()
-    tu_impl = idx_impl.parse(decl_filename, ['-x', 'c++'])
     impls = class_implementations(impl_translation_unit.cursor)
 
     classname_to_impl = dict()
-    with open(impl_filename, 'r') as fh:
-        contents = fh.readlines()
+    with open(impl_filename, 'r') as source_file:
+        contents = source_file.readlines()
 
-    for i in range(len(impls)):
-        cursor = impls[i]
+    for i, cursor in enumerate(impls):
         classname, implline = extract_implementation(cursor)
-        if i+1 < len(impls):
-            _, impl_end = extract_implementation(impls[i+1])
+        if i + 1 < len(impls):
+            _, impl_end = extract_implementation(impls[i + 1])
             impl = ''.join(contents[implline:impl_end])
         else:
             offset = 0
             while implline + offset < len(contents):
-                if '// namespace' in contents[implline+offset]:
+                if '// namespace' in contents[implline + offset]:
                     break
                 offset += 1
-            impl = ''.join(contents[implline:implline+offset])
+            impl = ''.join(contents[implline:implline + offset])
         try:
             classname_to_impl[classname] += impl + "\n"
-        except:
+        except KeyError:
             classname_to_impl[classname] = impl + "\n"
 
     classnames = [cursor.spelling for cursor in defns]
@@ -173,58 +233,71 @@ def main(args):
     for cursor in defns:
         classname = cursor.spelling
 
-        pc = cursor.semantic_parent
-        while pc.kind == CursorKind.NAMESPACE:
-            if pc.spelling == "":
+        parent_cursor = cursor.semantic_parent
+        while parent_cursor.kind == CursorKind.NAMESPACE:
+            if parent_cursor.spelling == "":
                 break
-            classname = pc.spelling + "::"+classname
-            pc = pc.semantic_parent
+            classname = parent_cursor.spelling + "::" + classname
+            parent_cursor = parent_cursor.semantic_parent
 
-        fullclassname = "class "+classname
+        fullclassname = "class " + classname
         fullclassnames.append(fullclassname)
     for defn in defns:
-        #print("---")
-        #print(extract_definition(defn))
         class_name, class_defn, deps = extract_definition(defn, classnames)
-        print(deps)
         includes = ""
         for name in deps:
-            includes += '#include "{}.h"\n'.format(name)
+            includes += '#include "{}.h"\n'.format(to_filename(name))
         class_impl = ""
         try:
-            impl_includes = impl_includes.replace(
-                decl_filename, '{}.h'.format(class_name))
+            impl_include = impl_includes.replace(
+                decl_filename, '{}.h'.format(to_filename(class_name)))
             namespace_prefix = ""
             namespace_suffix = ""
-            pc = defn.semantic_parent
-            while pc.kind == CursorKind.NAMESPACE:
-                if pc.spelling == "":
+            parent_cursor = defn.semantic_parent
+            while parent_cursor.kind == CursorKind.NAMESPACE:
+                if parent_cursor.spelling == "":
                     break
-                print(class_name,pc.spelling)
                 namespace_prefix = "namespace {} {{\n".format(
-                    pc.spelling) +namespace_prefix
+                    parent_cursor.spelling) + namespace_prefix
                 namespace_suffix += "\n}\n"
-                pc = pc.semantic_parent
-            class_impl = impl_includes + namespace_prefix + \
+                parent_cursor = parent_cursor.semantic_parent
+            class_impl = impl_include + namespace_prefix + \
                 classname_to_impl[class_name] + namespace_suffix
-
-        except:
+        except KeyError:
             print("Warning: empty class {}".format(class_name))
             class_impl = ""
-        with open("mockclass/{}.h".format(class_name), "w") as f:
-            f.write(decl_includes+includes+class_defn)
-        with open("mockclass/{}.cc".format(class_name), "w") as f:
-            f.write(class_impl)
+        with open("{}.h".format(to_filename(class_name)), "w") as decl_file:
+            decl_file.write(decl_includes + includes + class_defn)
+        with open("{}.cc".format(to_filename(class_name)), "w") as impl_file:
+            impl_file.write(class_impl)
+        # generating bazel build file, need to fill dependency manually
+        bazel_text = """
+envoy_cc_mock(
+    name = "{}_mocks",
+    srcs = ["{}.cc"],
+    hdrs = ["{}.h"],
+    deps = [
+
+    ]
+)
+""".format(to_filename(class_name), to_filename(class_name),
+           to_filename(class_name))
+        with open("BUILD", "a") as bazel_file:
+            bazel_file.write(bazel_text)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--decl', default='mocks.h',
+    PARSER = argparse.ArgumentParser()
+    PARSER.add_argument(
+        '-d',
+        '--decl',
+        default='mocks.h',
         help="Path to the monolith header .h file that needs to be splitted",
     )
-    parser.add_argument(
-        '-i', '--impl', default='mocks.cc',
+    PARSER.add_argument(
+        '-i',
+        '--impl',
+        default='mocks.cc',
         help="Path to the impl code .cc file that needs to be splitted",
     )
-    main(vars(parser.parse_args()))
+    main(vars(PARSER.parse_args()))
