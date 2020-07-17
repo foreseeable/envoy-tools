@@ -29,7 +29,7 @@ def to_filename(classname):
     Returns:
         corresponding file name
     """
-    filename = classname.replace('Mock', '')
+    filename = classname.replace('Mock', '', 1) # Remove only first "Mock"
     ret = ""
     for i, val in enumerate(filename):
         if val.isupper() and i > 0:
@@ -60,6 +60,10 @@ def get_headers(translation_unit):
         A string, contains all includes statements from the source code.
 
     """
+
+    # clang lib provides API like tranlation_unit.get_inludes()
+    # But we can't use it since it requires presence of the included files to return the full list
+
     cursor = translation_unit.cursor
     for i in cursor.walk_preorder():
         if i.location.file is not None and i.location.file.name == cursor.displayname:
